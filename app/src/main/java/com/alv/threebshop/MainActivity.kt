@@ -5,6 +5,7 @@ package com.alv.threebshop
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alv.threebshop.ui.details.ProductBottomSheet
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -69,10 +71,17 @@ fun ThreeBShopApp() {
 
 @Composable
 fun CatalogScreen(viewModel: CatalogViewModel) {
+    var selectedProduct by remember { mutableStateOf<Product?>(null) }
+
+    if (selectedProduct != null) {  // ← Использование ЗДЕСЬ
+        ProductBottomSheet(
+            product = selectedProduct!!,
+            onDismiss = { selectedProduct = null }
+        )
+    }
+
     Column {
-        // 👇 ДОБАВЬТЕ ЭТУ ПРОВЕРКУ 👇
         if (viewModel.uiState.categories.isEmpty()) {
-            // Показываем заглушку, пока данные загружаются
             Box(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 contentAlignment = Alignment.Center
@@ -100,19 +109,22 @@ fun CatalogScreen(viewModel: CatalogViewModel) {
 
         LazyColumn {
             items(viewModel.getFilteredProducts()) { product ->
-                ProductCard(product = product)
+                ProductCard(product = product,
+                    onClick = { selectedProduct = product } )
             }
         }
     }
 }
 
 @Composable
-fun ProductCard(product: Product) {  // ← Убрали models. из пути
+fun ProductCard(product: Product,
+                onClick: () -> Unit ) {  // ← Убрали models. из пути
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(8.dp)
+            .clickable { onClick() },
+    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(modifier = Modifier.padding(12.dp)) {
             // Изображение
