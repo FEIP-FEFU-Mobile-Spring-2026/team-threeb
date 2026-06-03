@@ -1,49 +1,164 @@
+// app/src/main/java/com/alv/threebshop/MainActivity.kt
 package com.alv.threebshop
+
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ShoppingCart
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.lifecycle.viewmodel.compose.viewModel
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface { HomeScreen() }
+            ThreeBShopApp()
+        }
+    }
+}
+
+@Composable
+fun ThreeBShopApp() {
+    val catalogViewModel: CatalogViewModel = viewModel()
+    var bottomNavIndex by remember { mutableIntStateOf(0) }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = bottomNavIndex == 0,
+                    onClick = { bottomNavIndex = 0 },
+                    icon = { Icon(Icons.Default.Home, contentDescription = "Каталог") },
+                    label = { Text("Каталог") }
+                )
+                NavigationBarItem(
+                    selected = bottomNavIndex == 1,
+                    onClick = { bottomNavIndex = 1 },
+                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Корзина") },
+                    label = { Text("Корзина") }
+                )
+            }
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            if (bottomNavIndex == 0) {
+                CatalogScreen(viewModel = catalogViewModel)
+            } else {
+                CartScreen()
             }
         }
     }
 }
 
 @Composable
-fun HomeScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+fun CatalogScreen(viewModel: CatalogViewModel) {
+    Column {
+        // 👇 ДОБАВЬТЕ ЭТУ ПРОВЕРКУ 👇
+        if (viewModel.uiState.categories.isEmpty()) {
+            // Показываем заглушку, пока данные загружаются
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Загрузка товаров...")
+            }
+            return@Column
+        }
+
+        // Безопасно находим индекс
+        val selectedIndex = viewModel.uiState.categories.indexOf(viewModel.uiState.selectedCategory)
+        val safeIndex = if (selectedIndex != -1) selectedIndex else 0
+
+        TabRow(selectedTabIndex = safeIndex) {
+            viewModel.uiState.categories.forEach { category ->
+                Tab(
+                    selected = viewModel.uiState.selectedCategory == category,
+                    onClick = { viewModel.selectCategory(category) },
+                    text = { Text(category) }
+                )
+            }
+        }
+
+        LazyColumn {
+            items(viewModel.getFilteredProducts()) { product ->
+                ProductCard(product = product)
+            }
+        }
+    }
+}
+
+@Composable
+fun ProductCard(product: Product) {  // ← Убрали models. из пути
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Text(
-            text = "teste test st s s asasw",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "вававава",
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        Row(modifier = Modifier.padding(12.dp)) {
+            // Изображение
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(product.imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = product.name,
+                modifier = Modifier.size(80.dp),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column {
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Цена в рублях (копейки → рубли)
+                val priceRubles = product.priceInKopecks / 100.0
+                Text(
+                    text = String.format(Locale.getDefault(), "%.2f ₽", priceRubles),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Text(
+                    text = "Категория: ${product.category}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CartScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Корзина пока пуста", style = MaterialTheme.typography.headlineMedium)
     }
 }
