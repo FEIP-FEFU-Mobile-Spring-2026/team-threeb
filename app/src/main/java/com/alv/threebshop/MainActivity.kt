@@ -19,11 +19,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ShoppingCart
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.alv.threebshop.models.Product
 import com.alv.threebshop.ui.details.ProductBottomSheet
 import java.util.Locale
 
@@ -73,10 +75,13 @@ fun ThreeBShopApp() {
 fun CatalogScreen(viewModel: CatalogViewModel) {
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
 
-    if (selectedProduct != null) {  // ← Использование ЗДЕСЬ
+
+    // Bottom Sheet
+    if (selectedProduct != null) {
         ProductBottomSheet(
             product = selectedProduct!!,
-            onDismiss = { selectedProduct = null }
+            onDismiss = { selectedProduct = null },
+            onAddToCart = { /* TODO: логика добавления */ }
         )
     }
 
@@ -89,6 +94,28 @@ fun CatalogScreen(viewModel: CatalogViewModel) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Загрузка товаров...")
+            }
+            return@Column
+        }
+        viewModel.uiState.error?.let { error ->
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.ErrorOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(error, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { viewModel.retryLoad() }) {
+                        Text("Повторить")
+                    }
+                }
             }
             return@Column
         }

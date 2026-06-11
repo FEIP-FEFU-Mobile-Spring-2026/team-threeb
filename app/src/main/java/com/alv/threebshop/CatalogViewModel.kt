@@ -6,18 +6,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.alv.threebshop.Product
+import com.alv.threebshop.models.Product
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import com.alv.threebshop.data.RetrofitClient
+
+private val apiService = RetrofitClient.apiService
+private val authToken = "Bearer Cmt7wdwFgDIi1_SRX8hlJIExs0jJKPr4axflLpExAxM"
+
+var uiState: CatalogUiState by mutableStateOf(CatalogUiState())
+    private set
+
 
 data class CatalogUiState(
     val products: List<Product> = emptyList(),
     val categories: List<String> = emptyList(),
-    val selectedCategory: String = "Новинки"
+    val selectedCategory: String = "Новинки",
+    val isLoading: Boolean = false,
+    val error: String? = null
 )
 
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,7 +45,12 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         "cat_outerwear" to "Верхняя одежда"
     )
 
-
+    init {
+        loadProducts()
+    }
+    fun retryLoad() {
+        loadProducts()
+    }
     private fun loadProducts() {
         viewModelScope.launch {
             try {
