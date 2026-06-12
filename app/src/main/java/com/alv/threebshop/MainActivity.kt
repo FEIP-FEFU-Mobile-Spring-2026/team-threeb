@@ -135,9 +135,14 @@ fun CatalogScreen(viewModel: CatalogViewModel) {
         }
 
         LazyColumn {
-            items(viewModel.getFilteredProducts()) { product ->
-                ProductCard(product = product,
-                    onClick = { selectedProduct = product } )
+            items(
+                items = viewModel.getFilteredProducts(),
+                key = { product -> product.id }  // ← Добавьте ключ
+            ) { product ->
+                ProductCard(
+                    product = product,
+                    onClick = { selectedProduct = product }
+                )
             }
         }
     }
