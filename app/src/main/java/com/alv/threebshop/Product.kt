@@ -6,5 +6,6 @@ data class Product(
     val priceInKopecks: Int,
     val imageUrl: String,
     val category: String,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val longDescription: String = ""
 )
