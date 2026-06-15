@@ -17,15 +17,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.alv.threebshop.Product
+import com.alv.threebshop.models.Product
 import java.util.Locale
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ShoppingCart
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductBottomSheet(
     product: Product,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onAddToCart: () -> Unit = {}
 ) {
+    var selectedSize by remember { mutableStateOf(product.sizes.firstOrNull()?.id) }
+    var showInfoDialog by remember { mutableStateOf(false) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         dragHandle = {
@@ -91,16 +101,29 @@ fun ProductBottomSheet(
                 }
             }
 
-            // Контент
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                // Название
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+            // === Контент ===
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Заголовок с кнопкой (i)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Кнопка (i)
+                    IconButton(onClick = { showInfoDialog = true }) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "Информация",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -115,6 +138,31 @@ fun ProductBottomSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // === Выбор размера ===
+                if (product.sizes.isNotEmpty()) {
+                    Text(
+                        text = "Размер",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        product.sizes.forEach { size ->
+                            FilterChip(
+                                selected = selectedSize == size.id,
+                                onClick = { selectedSize = size.id },
+                                label = { Text(size.name) },
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = selectedSize == size.id
+                                )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
                 // Описание
                 Text(
                     text = "Описание",
@@ -128,22 +176,61 @@ fun ProductBottomSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Категория
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Категория: ",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                // === Кнопка «В корзину» ===
+                Button(
+                    onClick = onAddToCart,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(
+                        Icons.Default.ShoppingCart,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Text(
-                        text = product.category,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("В корзину", fontWeight = FontWeight.Medium)
                 }
             }
         }
+    }
+
+    // === Диалог с характеристиками ===
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text("Характеристики", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoRow(label = "Материал", value = product.material)
+                    InfoRow(label = "Вес", value = product.weight)
+                    InfoRow(label = "Сезон", value = product.season)
+                    InfoRow(label = "Страна", value = product.countryOfOrigin)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text("Закрыть")
+                }
+            }
+        )
+    }
+}
+
+// Вспомогательный компонент для строк характеристик
+@Composable
+private fun InfoRow(label: String, value: String?) {
+    Row(horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value ?: "—",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

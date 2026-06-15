@@ -1,34 +1,27 @@
 package com.alv.threebshop
 
 import android.app.Application
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.alv.threebshop.Product
+import com.alv.threebshop.data.RetrofitClient
+import com.alv.threebshop.models.ApiCatalogResponse
+import com.alv.threebshop.models.Product
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import java.io.BufferedReader
-import java.io.InputStreamReader
-
-data class CatalogUiState(
-    val products: List<Product> = emptyList(),
-    val categories: List<String> = emptyList(),
-    val selectedCategory: String = "Новинки"
-)
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.alv.threebshop.models.Size
 
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val apiService = RetrofitClient.apiService
+    private val authToken = "Bearer Cmt7wdwFgDIi1_SRX8hlJIExs0jJKPr4axflLpExAxM"
     var uiState: CatalogUiState by mutableStateOf(CatalogUiState())
         private set
 
-    init {
-        loadProducts()
-    }
-    val categoryNames = mapOf(
+    private val categoryNames = mapOf(
         "cat_jeans" to "Джинсы",
         "cat_tshirts" to "Футболки",
         "cat_shirts" to "Рубашки",
@@ -36,93 +29,87 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         "cat_outerwear" to "Верхняя одежда"
     )
 
+    init {
+        loadProducts()
+    }
 
     private fun loadProducts() {
         viewModelScope.launch {
+            uiState = uiState.copy(isLoading = true, error = null)
+
             try {
-                val jsonString = withContext(Dispatchers.IO) {
-                    getApplication<Application>().assets.open("products.json").use { inputStream ->
-                        BufferedReader(InputStreamReader(inputStream)).readText()
-                    }
-                }
+                val response = apiService.getCatalog(authToken)
 
-                // 1. Парсим как объект (не массив!)
-                val jsonObject = org.json.JSONObject(jsonString)
+                // Маппинг категорий
+                val categoryNames = response.categories.associate { it.id to it.name }
 
-                // 2. Берём массив items
-                val itemsArray = jsonObject.getJSONArray("items")
-
-                // 👇 Маппинг ID категорий → человекочитаемые названия 👇
-                val categoryNames = mapOf(
-                    "cat_jeans" to "Джинсы",
-                    "cat_tshirts" to "Футболки",
-                    "cat_shirts" to "Рубашки",
-                    "cat_shoes" to "Обувь",
-                    "cat_outerwear" to "Верхняя одежда"
-                )
-
-                val products = mutableListOf<Product>()
-
-                for (i in 0 until itemsArray.length()) {
-                    val item = itemsArray.getJSONObject(i)
-
-                    // Парсим теги
-                    val tags = mutableListOf<String>()
-                    if (item.has("tags")) {
-                        val tagsArray = item.getJSONArray("tags")
-                        for (j in 0 until tagsArray.length()) {
-                            tags.add(tagsArray.getString(j))
-                        }
-                    }
-
-                    products.add(
-                        Product(
-                            id = item.getString("id"),
-                            name = item.getString("name"),
-                            priceInKopecks = item.getInt("priceInKopecks"),
-                            imageUrl = item.getString("imageUrl"),
-                            // 👇 Используем маппинг 👇
-                            category = categoryNames[item.getString("categoryId")] ?: "Неизвестно",
-                            tags = tags
-                        )
+                // Маппинг ProductDto → Product
+                val products = response.items.map { dto ->
+                    Product(
+                        id = dto.id,
+                        name = dto.name,
+                        priceInKopecks = dto.priceInKopecks,
+                        imageUrl = dto.imageUrl,
+                        category = categoryNames[dto.categoryId] ?: "Неизвестно",  // ← Маппим categoryId → category
+                        tags = dto.tags,
+                        longDescription = dto.longDescription,
+                        sizes = dto.sizes.map { Size(it.id, it.name) },
+                        material = dto.material,
+                        weight = dto.weight,
+                        season = dto.season,
+                        countryOfOrigin = dto.countryOfOrigin
                     )
                 }
 
-                // 👇👇👇 САМОЕ ВАЖНОЕ: формируем категории и обновляем состояние 👇👇👇
-
-                // 3. Формируем список категорий
+                // Формируем список категорий
                 val distinctCategories = products.map { it.category }.distinct()
                 val hasNewItems = products.any { "New" in it.tags }
 
                 val categories = mutableListOf<String>()
-                if (hasNewItems) categories.add("Новинки")  // Новинки всегда первые
+                if (hasNewItems) categories.add("Новинки")
                 categories.addAll(distinctCategories.filter { it != "Неизвестно" })
 
-                // 4. Обновляем uiState — без этого UI не увидит данные!
                 uiState = uiState.copy(
                     products = products,
                     categories = categories,
-                    selectedCategory = if (categories.isNotEmpty()) categories[0] else ""
+                    selectedCategory = categories.firstOrNull() ?: "",
+                    isLoading = false,
+                    error = null
                 )
 
-                // Для отладки (можно удалить потом)
-                println("✅ Загружено товаров: ${products.size}")
-                println("✅ Категории: $categories")
+                println("✅ Загружено ${products.size} товаров из API")
 
             } catch (e: Exception) {
-                println("❌ Ошибка загрузки JSON: ${e.message}")
+                uiState = uiState.copy(
+                    isLoading = false,
+                    error = "Не удалось загрузить товары: ${e.message}"
+                )
+                println("❌ Ошибка загрузки из API: ${e.message}")
                 e.printStackTrace()
             }
         }
-    }
-    fun selectCategory(category: String) {
+    }    fun selectCategory(category: String) {
         uiState = uiState.copy(selectedCategory = category)
     }
 
     fun getFilteredProducts(): List<Product> {
-        return when (uiState.selectedCategory) {
-            "Новинки" -> uiState.products.filter { "New" in it.tags }
-            else -> uiState.products.filter { it.category == uiState.selectedCategory }
+        return if (uiState.selectedCategory == "Новинки") {
+            uiState.products.filter { "New" in it.tags }
+        } else {
+            uiState.products.filter { it.category == uiState.selectedCategory }
         }
     }
+    fun retryLoad() {
+        loadProducts()
+    }
 }
+
+
+
+data class CatalogUiState(
+    val products: List<Product> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val selectedCategory: String = "",
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
