@@ -1,18 +1,15 @@
 package com.alv.threebshop
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.alv.threebshop.data.RetrofitClient
-import com.alv.threebshop.models.ApiCatalogResponse
 import com.alv.threebshop.models.Product
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.alv.threebshop.models.Size
+import kotlinx.coroutines.launch
 
 class CatalogViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -20,14 +17,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val authToken = "Bearer Cmt7wdwFgDIi1_SRX8hlJIExs0jJKPr4axflLpExAxM"
     var uiState: CatalogUiState by mutableStateOf(CatalogUiState())
         private set
-
-    private val categoryNames = mapOf(
-        "cat_jeans" to "Джинсы",
-        "cat_tshirts" to "Футболки",
-        "cat_shirts" to "Рубашки",
-        "cat_shoes" to "Обувь",
-        "cat_outerwear" to "Верхняя одежда"
-    )
 
     init {
         loadProducts()
